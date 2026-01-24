@@ -1,0 +1,16 @@
+# MacOS
+.DS_Store
+
+# Python
+backend/venv/
+backend/__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# Database
+# If running mongo locally we don't commit it, but just in case
+data/

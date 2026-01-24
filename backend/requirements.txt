@@ -1,0 +1,13 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+pymongo>=4.6.0
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+# ML libraries updated for Python 3.13 compatibility
+spacy>=3.8.0
+nltk>=3.9.1
+scikit-learn>=1.5.0
+sentence-transformers>=3.0.0
+rank-bm25>=0.2.2
+crawl4ai
+playwright
