@@ -43,7 +43,7 @@ const GeneratePanel = ({ results, info, projectId }) => {
         <div style={{ color: 'white' }}>
             <div style={{ marginBottom: '2rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1.5rem' }}>
                 <h1 style={{ fontSize: '1.8rem', fontWeight: 700, marginBottom: '0.5rem' }}>⚡ Generate Optimized Website</h1>
-                <p style={{ color: '#95a5a6' }}>Generate SEO/GEO-optimized HTML using Claude AI</p>
+                <p style={{ color: '#95a5a6' }}>Generate SEO/GEO-optimized HTML using Ollama Local AI</p>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
