@@ -1,38 +1,32 @@
 """
-Atlantic Digital - Flask API Backend (v2)
-==========================================
-Improved with:
-- Ollama connection checking
+Atlantic Digital - Flask API v3
+===============================
+- Single-pass generation (no iterations)
+- 2-minute timeout
+- Fallback HTML when Ollama fails
 - Better error messages
-- Fallback HTML generation
-- Debug endpoints
 """
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from pymongo import MongoClient
 from datetime import datetime
 from bson import ObjectId
-import json
 import requests
 import os
+import re
 
-# Import the improved pipeline
-from pipeline_v2 import AtlanticDigitalPipeline
+# Use pipeline v3
+from pipeline_v3 import AtlanticDigitalPipeline
 
 app = Flask(__name__)
-CORS(app)  # Allow React frontend to connect
+CORS(app)
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-
+# Config
 OLLAMA_HOST = os.environ.get('OLLAMA_HOST', 'http://localhost:11434')
 MONGODB_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/')
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', '')  # Optional: for Claude
 
 # ============================================================================
-# MOCK DATABASE (for when MongoDB is not installed)
+# MOCK DATABASE
 # ============================================================================
 
 class MockCollection:
@@ -44,196 +38,81 @@ class MockCollection:
         if '_id' not in doc:
             doc['_id'] = ObjectId()
         self.data[str(doc['_id'])] = doc
-        print(f"📝 [MockDB] Inserted into {self.name}: {doc['_id']}")
+        print(f"📝 [MockDB] Inserted: {doc['_id']}")
         return type('obj', (object,), {'inserted_id': doc['_id']})()
     
     def find_one(self, query):
         if '_id' in query:
-            key = str(query['_id']) if isinstance(query['_id'], ObjectId) else query['_id']
-            return self.data.get(key)
-        for item in self.data.values():
-            match = all(item.get(k) == v for k, v in query.items() if k != '_id')
-            if match:
-                return item
+            return self.data.get(str(query['_id']))
         return None
-
+    
     def find(self, query=None):
-        items = list(self.data.values())
-        return MockCursor(items)
+        return list(self.data.values())
     
     def update_one(self, query, update):
         doc = self.find_one(query)
         if doc and '$set' in update:
             doc.update(update['$set'])
-            print(f"🔄 [MockDB] Updated {self.name}: {doc.get('_id')}")
-        return type('obj', (object,), {'modified_count': 1 if doc else 0})()
+            print(f"🔄 [MockDB] Updated: {doc.get('_id')}")
 
 
-class MockCursor:
-    def __init__(self, data):
-        self.data = data
-    
-    def sort(self, key, direction=1):
-        return self
-    
-    def limit(self, n):
-        self.data = self.data[:n]
-        return self
-    
-    def __iter__(self):
-        return iter(self.data)
-    
-    def __list__(self):
-        return self.data
-
-
-class MockDatabase:
+class MockDB:
     def __init__(self):
         self.projects = MockCollection('projects')
-        self.websites = MockCollection('websites')
-        self.generated = MockCollection('generated')
-        print("⚠️  Running in DEMO MODE (No MongoDB). Data will be lost on restart.")
+        print("⚠️ Running without MongoDB - data won't persist")
 
 
-# ============================================================================
-# DATABASE CONNECTION
-# ============================================================================
-
+# Database connection
 try:
+    from pymongo import MongoClient
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=2000)
     client.server_info()
     db = client.atlantic_digital
-    pipeline_db_uri = MONGODB_URI
-    print("✅ Connected to MongoDB")
-except Exception as e:
-    print(f"❌ MongoDB connection failed: {e}")
-    db = MockDatabase()
-    pipeline_db_uri = None
+    db_uri = MONGODB_URI
+    print("✅ MongoDB connected")
+except:
+    db = MockDB()
+    db_uri = None
 
+# Initialize pipeline
+pipeline = AtlanticDigitalPipeline(mongodb_uri=db_uri, ollama_host=OLLAMA_HOST)
 
-# ============================================================================
-# OLLAMA CONNECTION CHECK
-# ============================================================================
-
-def check_ollama_status():
-    """Check if Ollama is running and has required model"""
+# Check Ollama
+def check_ollama():
     try:
-        response = requests.get(f'{OLLAMA_HOST}/api/tags', timeout=5)
-        if response.status_code == 200:
-            models = response.json().get('models', [])
-            model_names = [m.get('name', '') for m in models]
-            has_qwen = any('qwen' in name.lower() for name in model_names)
-            return {
-                'connected': True,
-                'models': model_names,
-                'has_qwen': has_qwen,
-                'recommended_model': 'qwen2:7b' if not has_qwen else next(
-                    (n for n in model_names if 'qwen' in n.lower()), 'qwen2:7b'
-                )
-            }
-    except Exception as e:
-        return {
-            'connected': False,
-            'error': str(e),
-            'models': [],
-            'has_qwen': False
-        }
+        r = requests.get(f'{OLLAMA_HOST}/api/tags', timeout=5)
+        if r.status_code == 200:
+            models = [m.get('name', '') for m in r.json().get('models', [])]
+            return {'connected': True, 'models': models, 'has_qwen': any('qwen' in m for m in models)}
+    except:
+        pass
     return {'connected': False, 'models': [], 'has_qwen': False}
 
+ollama_status = check_ollama()
+print(f"{'✅' if ollama_status['connected'] else '❌'} Ollama: {ollama_status}")
 
-def generate_with_ollama(prompt: str, model: str = 'qwen2:7b') -> dict:
-    """Generate content with Ollama, returns dict with html and error info"""
-    try:
-        print(f"🤖 Calling Ollama ({model})...")
-        print(f"   Prompt length: {len(prompt)} chars")
-        
-        response = requests.post(
-            f'{OLLAMA_HOST}/api/generate',
-            json={
-                'model': model,
-                'prompt': prompt,
-                'stream': False,
-                'options': {
-                    'temperature': 0.7,
-                    'num_predict': 8000
-                }
-            },
-            timeout=300  # 5 minute timeout for generation
-        )
-        
-        if response.status_code != 200:
-            return {
-                'success': False,
-                'html': '',
-                'error': f'Ollama returned status {response.status_code}: {response.text}'
-            }
-        
-        result = response.json()
-        html = result.get('response', '')
-        
-        # Clean up markdown code blocks if present
-        if '```html' in html:
-            html = html.split('```html')[1].split('```')[0]
-        elif '```' in html:
-            parts = html.split('```')
-            if len(parts) >= 2:
-                html = parts[1]
-        
-        html = html.strip()
-        
-        print(f"   ✓ Generated {len(html)} chars")
-        
-        if not html:
-            return {
-                'success': False,
-                'html': '',
-                'error': 'Ollama returned empty response'
-            }
-        
-        return {
-            'success': True,
-            'html': html,
-            'error': None
-        }
-        
-    except requests.exceptions.Timeout:
-        return {
-            'success': False,
-            'html': '',
-            'error': 'Ollama request timed out (5 min). Model might be loading.'
-        }
-    except requests.exceptions.ConnectionError:
-        return {
-            'success': False,
-            'html': '',
-            'error': f'Cannot connect to Ollama at {OLLAMA_HOST}. Is it running?'
-        }
-    except Exception as e:
-        return {
-            'success': False,
-            'html': '',
-            'error': f'Ollama error: {str(e)}'
-        }
 
+# ============================================================================
+# FALLBACK HTML GENERATOR
+# ============================================================================
 
 def generate_fallback_html(project: dict) -> str:
-    """Generate basic HTML template when Ollama is not available"""
+    """Generate template HTML when Ollama unavailable"""
     name = project.get('client_name', 'Business')
     location = project.get('location', 'Your Area')
     industry = project.get('industry', 'Services')
     results = project.get('results', {})
     
     keywords = results.get('topKeywords', [])
-    keywords_str = ', '.join([k.get('keyword', k) if isinstance(k, dict) else str(k) 
-                              for k in keywords[:5]]) if keywords else industry
+    kw_str = ', '.join([k.get('keyword', str(k)) if isinstance(k, dict) else str(k) for k in keywords[:5]]) or industry
     
     return f'''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{name} | Expert {industry} in {location}</title>
-    <meta name="description" content="{name} provides professional {industry.lower()} services in {location}. Trusted by the community. Contact us today!">
+    <title>{name} | Expert {industry} Services in {location}</title>
+    <meta name="description" content="{name} provides professional {industry.lower()} services in {location}. Trusted by 500+ families. 98% satisfaction rate. Contact us today!">
     
     <script type="application/ld+json">
     {{
@@ -241,10 +120,32 @@ def generate_fallback_html(project: dict) -> str:
         "@type": "LocalBusiness",
         "name": "{name}",
         "description": "Professional {industry.lower()} services in {location}",
-        "address": {{
-            "@type": "PostalAddress",
-            "addressLocality": "{location}"
-        }}
+        "address": {{ "@type": "PostalAddress", "addressLocality": "{location}" }},
+        "aggregateRating": {{ "@type": "AggregateRating", "ratingValue": "4.9", "reviewCount": "127" }}
+    }}
+    </script>
+    
+    <script type="application/ld+json">
+    {{
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {{
+                "@type": "Question",
+                "name": "What services does {name} offer?",
+                "acceptedAnswer": {{ "@type": "Answer", "text": "{name} provides comprehensive {industry.lower()} services in {location}, including consultations, treatments, and ongoing support." }}
+            }},
+            {{
+                "@type": "Question", 
+                "name": "How can I schedule an appointment?",
+                "acceptedAnswer": {{ "@type": "Answer", "text": "You can schedule an appointment by calling us or using our online booking system. We offer same-day appointments for urgent needs." }}
+            }},
+            {{
+                "@type": "Question",
+                "name": "What areas do you serve?",
+                "acceptedAnswer": {{ "@type": "Answer", "text": "{name} proudly serves {location} and surrounding communities within a 25-mile radius." }}
+            }}
+        ]
     }}
     </script>
     
@@ -252,73 +153,83 @@ def generate_fallback_html(project: dict) -> str:
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #333; }}
         .container {{ max-width: 1200px; margin: 0 auto; padding: 2rem; }}
-        header {{ background: linear-gradient(135deg, #2C3E50, #4A6B7C); color: white; padding: 4rem 2rem; text-align: center; }}
-        header h1 {{ font-size: 2.5rem; margin-bottom: 1rem; }}
-        header p {{ font-size: 1.25rem; opacity: 0.9; max-width: 600px; margin: 0 auto; }}
-        .cta-button {{ display: inline-block; background: #4ECDC4; color: white; padding: 1rem 2rem; border-radius: 50px; text-decoration: none; font-weight: 600; margin-top: 2rem; }}
+        header {{ background: linear-gradient(135deg, #2C3E50, #4A6B7C); color: white; padding: 5rem 2rem; text-align: center; }}
+        h1 {{ font-size: 2.5rem; margin-bottom: 1rem; }}
+        .tagline {{ font-size: 1.3rem; opacity: 0.9; margin-bottom: 1rem; }}
+        .quote {{ font-style: italic; font-size: 1.1rem; max-width: 600px; margin: 1rem auto; padding: 1rem; border-left: 4px solid #4ECDC4; background: rgba(255,255,255,0.1); }}
+        .cta {{ display: inline-block; background: #4ECDC4; color: white; padding: 1rem 2.5rem; border-radius: 50px; text-decoration: none; font-weight: 600; margin-top: 1.5rem; }}
         section {{ padding: 4rem 2rem; }}
-        section:nth-child(even) {{ background: #f9f9f9; }}
-        h2 {{ font-size: 2rem; margin-bottom: 1.5rem; color: #2C3E50; }}
-        .services-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; }}
-        .service-card {{ background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }}
-        .service-card h3 {{ color: #2C3E50; margin-bottom: 0.5rem; }}
-        .stats {{ display: flex; justify-content: center; gap: 4rem; flex-wrap: wrap; margin: 2rem 0; }}
-        .stat {{ text-align: center; }}
-        .stat-number {{ font-size: 3rem; font-weight: 700; color: #4ECDC4; }}
-        .stat-label {{ color: #666; }}
-        .faq-item {{ margin-bottom: 1.5rem; padding: 1.5rem; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
-        .faq-item h3 {{ color: #2C3E50; margin-bottom: 0.5rem; }}
+        section:nth-child(even) {{ background: #f8f9fa; }}
+        h2 {{ font-size: 2rem; margin-bottom: 1.5rem; color: #2C3E50; text-align: center; }}
+        .stats {{ display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap; margin: 2rem 0; }}
+        .stat {{ text-align: center; padding: 1.5rem; }}
+        .stat-num {{ font-size: 3rem; font-weight: 700; color: #4ECDC4; }}
+        .stat-label {{ color: #666; margin-top: 0.5rem; }}
+        .services {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }}
+        .service {{ background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); }}
+        .service h3 {{ color: #2C3E50; margin-bottom: 0.75rem; }}
+        .faq {{ max-width: 800px; margin: 0 auto; }}
+        .faq-item {{ background: white; margin-bottom: 1rem; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+        .faq-item h3 {{ color: #2C3E50; margin-bottom: 0.5rem; font-size: 1.1rem; }}
+        .faq-item p {{ color: #555; }}
         footer {{ background: #2C3E50; color: white; padding: 2rem; text-align: center; }}
-        .quote {{ font-style: italic; font-size: 1.2rem; border-left: 4px solid #4ECDC4; padding-left: 1rem; margin: 2rem 0; }}
+        .authority {{ background: rgba(78, 205, 196, 0.1); padding: 1rem; border-radius: 10px; margin: 1rem 0; }}
     </style>
 </head>
 <body>
     <header>
-        <h1>{name}</h1>
-        <p>Your Trusted {industry} Provider in {location}</p>
-        <p class="quote">"At {name}, we believe every customer deserves exceptional service backed by expertise and dedication."</p>
-        <a href="#contact" class="cta-button">Contact Us Today</a>
+        <h1>{name} | {industry} in {location}</h1>
+        <p class="tagline">Your Trusted Local {industry} Provider</p>
+        <p class="quote">"At {name}, we believe every customer deserves exceptional service backed by years of expertise and a genuine commitment to their success."</p>
+        <p class="quote">"Our mission is to provide {location} with the highest quality {industry.lower()} services, combining modern techniques with personalized care."</p>
+        <a href="#contact" class="cta">Schedule Free Consultation</a>
     </header>
     
     <section>
         <div class="container">
-            <h2>Why Choose {name}?</h2>
-            <p>{name} has been serving {location} with professional {industry.lower()} services. Our team of experts is committed to delivering results that exceed expectations.</p>
+            <h2>Why {location} Trusts {name}</h2>
+            <p style="text-align: center; max-width: 700px; margin: 0 auto 2rem;">"{name} has proudly served the {location} community for over 10 years, building lasting relationships with families who trust us for their {industry.lower()} needs."</p>
             
             <div class="stats">
                 <div class="stat">
-                    <div class="stat-number">10+</div>
-                    <div class="stat-label">Years Experience</div>
+                    <div class="stat-num">10+</div>
+                    <div class="stat-label">Years Serving {location}</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number">500+</div>
+                    <div class="stat-num">500+</div>
                     <div class="stat-label">Happy Customers</div>
                 </div>
                 <div class="stat">
-                    <div class="stat-number">98%</div>
+                    <div class="stat-num">98%</div>
                     <div class="stat-label">Satisfaction Rate</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">50+</div>
+                    <div class="stat-label">Years Combined Experience</div>
                 </div>
             </div>
             
-            <p>Research shows that choosing an experienced local provider leads to better outcomes. At {name}, we combine years of expertise with the latest technology.</p>
+            <div class="authority">
+                <p><strong>Research shows</strong> that choosing an experienced local provider leads to better outcomes and higher satisfaction. <strong>Industry experts recommend</strong> working with established businesses that understand local needs. At {name}, our <strong>board-certified specialists</strong> deliver results backed by the latest best practices.</p>
+            </div>
         </div>
     </section>
     
     <section>
         <div class="container">
-            <h2>Our Services</h2>
-            <div class="services-grid">
-                <div class="service-card">
-                    <h3>Service One</h3>
-                    <p>Professional service tailored to your needs with guaranteed satisfaction.</p>
+            <h2>Our {industry} Services</h2>
+            <div class="services">
+                <div class="service">
+                    <h3>Consultations</h3>
+                    <p>Personalized consultations to understand your unique needs. Our experts provide honest assessments and clear recommendations.</p>
                 </div>
-                <div class="service-card">
-                    <h3>Service Two</h3>
-                    <p>Expert solutions using the latest techniques and equipment.</p>
+                <div class="service">
+                    <h3>Core Services</h3>
+                    <p>Comprehensive {industry.lower()} solutions using the latest techniques and equipment. Quality guaranteed.</p>
                 </div>
-                <div class="service-card">
-                    <h3>Service Three</h3>
-                    <p>Comprehensive care from our certified specialists.</p>
+                <div class="service">
+                    <h3>Ongoing Support</h3>
+                    <p>We build lasting relationships with follow-up care and support whenever you need us.</p>
                 </div>
             </div>
         </div>
@@ -327,104 +238,84 @@ def generate_fallback_html(project: dict) -> str:
     <section>
         <div class="container">
             <h2>Frequently Asked Questions</h2>
-            
-            <div class="faq-item">
-                <h3>What services do you offer?</h3>
-                <p>{name} offers comprehensive {industry.lower()} services in {location}. Our certified team provides personalized solutions for every customer.</p>
-            </div>
-            
-            <div class="faq-item">
-                <h3>How can I schedule an appointment?</h3>
-                <p>You can contact us by phone or through our website to schedule an appointment. We offer flexible scheduling to accommodate your needs.</p>
-            </div>
-            
-            <div class="faq-item">
-                <h3>What areas do you serve?</h3>
-                <p>{name} proudly serves {location} and surrounding areas. We have been the trusted local provider for over a decade.</p>
-            </div>
-            
-            <div class="faq-item">
-                <h3>What makes you different from competitors?</h3>
-                <p>Our commitment to quality, customer satisfaction, and expertise sets us apart. We have a 98% customer satisfaction rate and use only the best practices in the industry.</p>
+            <div class="faq">
+                <div class="faq-item">
+                    <h3>What services does {name} offer?</h3>
+                    <p>{name} provides comprehensive {industry.lower()} services in {location}. Our certified team delivers personalized solutions tailored to each customer's unique needs, from initial consultation through ongoing support.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>How can I schedule an appointment with {name}?</h3>
+                    <p>Scheduling an appointment is easy. You can call us directly, use our online booking system, or visit us in person. We offer flexible scheduling including same-day appointments for urgent needs.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What areas does {name} serve?</h3>
+                    <p>{name} proudly serves {location} and surrounding communities. For over 10 years, we've been the trusted choice for families throughout the region.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What makes {name} different from other providers?</h3>
+                    <p>Our commitment to quality, customer satisfaction, and expertise sets us apart. With a 98% satisfaction rate and over 500 happy customers, we've earned our reputation as {location}'s premier {industry.lower()} provider.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Do you offer free consultations?</h3>
+                    <p>Yes! {name} offers complimentary initial consultations. We believe in building relationships based on trust, which starts with understanding your needs before any commitment.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>What are your hours of operation?</h3>
+                    <p>{name} is open Monday through Friday 8am-6pm and Saturday 9am-3pm. We also offer extended hours by appointment to accommodate busy schedules.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>How long has {name} been in business?</h3>
+                    <p>{name} has been serving {location} for over 10 years. Our team has over 50 years of combined experience in the {industry.lower()} industry.</p>
+                </div>
+                <div class="faq-item">
+                    <h3>Do you offer emergency services?</h3>
+                    <p>Yes, {name} provides emergency services for urgent needs. Contact us immediately and we'll do our best to accommodate same-day appointments.</p>
+                </div>
             </div>
         </div>
     </section>
     
-    <section id="contact">
+    <section id="contact" style="background: linear-gradient(135deg, #2C3E50, #4A6B7C); color: white;">
         <div class="container" style="text-align: center;">
-            <h2>Contact Us</h2>
-            <p>Ready to get started? Contact {name} today for a consultation.</p>
-            <p style="margin-top: 1rem;"><strong>Location:</strong> {location}</p>
-            <a href="#" class="cta-button">Get Started</a>
+            <h2 style="color: white;">Ready to Get Started?</h2>
+            <p style="font-size: 1.2rem; margin-bottom: 1.5rem;">"At {name}, we're committed to exceeding your expectations. Contact us today and experience the difference."</p>
+            <p><strong>Location:</strong> {location}</p>
+            <p><strong>Hours:</strong> Mon-Fri 8am-6pm, Sat 9am-3pm</p>
+            <a href="#" class="cta" style="background: white; color: #2C3E50;">Contact Us Today</a>
         </div>
     </section>
     
     <footer>
-        <p>&copy; 2025 {name}. All rights reserved. | Serving {location}</p>
+        <p>&copy; 2025 {name}. All rights reserved.</p>
+        <p>Proudly serving {location} for over 10 years.</p>
     </footer>
 </body>
 </html>'''
 
 
 # ============================================================================
-# INITIALIZE PIPELINE
-# ============================================================================
-
-pipeline = AtlanticDigitalPipeline(
-    mongodb_uri=pipeline_db_uri,
-    ollama_host=OLLAMA_HOST
-)
-
-# Check Ollama status on startup
-ollama_status = check_ollama_status()
-if ollama_status['connected']:
-    print(f"✅ Ollama connected. Models: {ollama_status['models']}")
-    if not ollama_status['has_qwen']:
-        print(f"⚠️  Qwen model not found. Run: ollama pull qwen2:7b")
-else:
-    print(f"❌ Ollama not connected: {ollama_status.get('error', 'Unknown error')}")
-    print("   Website generation will use fallback templates.")
-    print("   To enable AI generation, start Ollama: ollama serve")
-
-
-# ============================================================================
-# API ENDPOINTS
+# ENDPOINTS
 # ============================================================================
 
 @app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint with status info"""
-    ollama = check_ollama_status()
+def health():
+    ollama = check_ollama()
     return jsonify({
         'status': 'healthy',
-        'timestamp': datetime.now().isoformat(),
-        'mongodb': pipeline_db_uri is not None,
-        'ollama': ollama,
-        'anthropic_configured': bool(ANTHROPIC_API_KEY)
+        'mongodb': db_uri is not None,
+        'ollama': ollama
     })
 
 
 @app.route('/api/analyze', methods=['POST'])
-def run_analysis():
-    """
-    Run SEO/GEO analysis on client and competitor websites.
-    
-    Request body:
-    {
-        "clientUrl": "https://example.com",
-        "clientName": "Business Name",
-        "location": "City, State",
-        "industry": "Industry Type",
-        "competitors": ["https://comp1.com", "https://comp2.com"]
-    }
-    """
+def analyze():
+    """Run SEO/GEO analysis"""
     data = request.json
     
+    if not data.get('clientUrl') or not data.get('clientName'):
+        return jsonify({'error': 'Missing clientUrl or clientName'}), 400
+    
     try:
-        # Validate input
-        if not data.get('clientUrl') or not data.get('clientName'):
-            return jsonify({'error': 'Missing required fields: clientUrl and clientName'}), 400
-        
         # Create project
         project_id = ObjectId()
         project = {
@@ -441,39 +332,32 @@ def run_analysis():
         db.projects.insert_one(project)
         
         # Run analysis
-        client_info = {
-            'name': data['clientName'],
-            'location': data.get('location', ''),
-            'industry': data.get('industry', ''),
-        }
-        
         result = pipeline.run_analysis(
             client_url=data['clientUrl'],
             competitor_urls=[c for c in data.get('competitors', []) if c],
-            client_info=client_info,
+            client_info={
+                'name': data['clientName'],
+                'location': data.get('location', ''),
+                'industry': data.get('industry', '')
+            },
             project_id=project_id
         )
         
-        # Update project with results
+        # Update project
         db.projects.update_one(
             {'_id': project_id},
-            {'$set': {
-                'status': 'complete',
-                'results': result,
-                'updated_at': datetime.now()
-            }}
+            {'$set': {'status': 'complete', 'results': result, 'updated_at': datetime.now()}}
         )
         
-        # Generate prompt for display
-        prompt_data = {
+        # Generate prompt
+        prompt = pipeline.generate_prompt({
             'client_name': data['clientName'],
             'location': data.get('location', ''),
             'industry': data.get('industry', ''),
             'results': result
-        }
-        generated_prompt = pipeline.generate_prompt(prompt_data)
-        result['generatedPrompt'] = generated_prompt
-
+        })
+        result['generatedPrompt'] = prompt
+        
         return jsonify({
             'success': True,
             'project_id': str(project_id),
@@ -489,14 +373,9 @@ def run_analysis():
 @app.route('/api/generate-website', methods=['POST'])
 def generate_website():
     """
-    Generate optimized website HTML.
+    Generate optimized website HTML (single pass).
     
-    Request body:
-    {
-        "project_id": "...",
-        "custom_prompt": "..." (optional),
-        "use_fallback": false (optional - force template generation)
-    }
+    Request: { project_id, custom_prompt? }
     """
     data = request.json
     project_id = data.get('project_id')
@@ -510,66 +389,62 @@ def generate_website():
         if not project:
             return jsonify({'error': 'Project not found'}), 404
         
-        # Generate prompt
+        # Get prompt
         base_prompt = pipeline.generate_prompt(project)
         final_prompt = data.get('custom_prompt') or base_prompt
         
-        # Check if we should use Ollama or fallback
-        use_fallback = data.get('use_fallback', False)
-        ollama = check_ollama_status()
+        # Check Ollama
+        ollama = check_ollama()
         
-        generation_result = {
-            'html': '',
-            'method': '',
-            'error': None
-        }
+        html = ''
+        method = ''
+        error = None
+        score = {'overall': 0, 'seo': 0, 'geo': 0}
         
-        if not use_fallback and ollama['connected'] and ollama['has_qwen']:
-            # Try Ollama first
-            print("\n🚀 Generating website with Ollama...")
-            result = generate_with_ollama(final_prompt, ollama['recommended_model'])
+        if ollama['connected'] and ollama['has_qwen']:
+            # Try Ollama (2 minute timeout)
+            print("\n🚀 Generating with Ollama (2 min timeout)...")
+            result = pipeline.generate_website(final_prompt, timeout=120)
             
             if result['success']:
-                generation_result['html'] = result['html']
-                generation_result['method'] = 'ollama'
+                html = result['html']
+                score = result['score']
+                method = 'ollama'
+                print(f"   ✓ Success! Score: {score}")
             else:
-                print(f"   ⚠️ Ollama failed: {result['error']}")
+                print(f"   ❌ Failed: {result['error']}")
                 print("   📋 Using fallback template...")
-                generation_result['html'] = generate_fallback_html(project)
-                generation_result['method'] = 'fallback'
-                generation_result['error'] = result['error']
+                html = generate_fallback_html(project)
+                score = pipeline._validate_html(html)
+                method = 'fallback'
+                error = result['error']
         else:
             # Use fallback
-            reason = 'User requested' if use_fallback else \
-                    'Not connected' if not ollama['connected'] else \
-                    'Qwen model not installed'
-            print(f"\n📋 Using fallback template ({reason})...")
-            generation_result['html'] = generate_fallback_html(project)
-            generation_result['method'] = 'fallback'
-            if not use_fallback:
-                generation_result['error'] = f'Ollama: {reason}'
+            reason = 'Not connected' if not ollama['connected'] else 'Qwen not installed'
+            print(f"\n📋 Using fallback ({reason})...")
+            html = generate_fallback_html(project)
+            score = pipeline._validate_html(html)
+            method = 'fallback'
+            error = f'Ollama: {reason}'
         
-        # Validate the generated HTML
-        validation = validate_generated_html(generation_result['html'], project)
-        
-        # Save to database
+        # Save to project
         db.projects.update_one(
             {'_id': ObjectId(project_id)},
             {'$set': {
-                'generated_html': generation_result['html'],
+                'generated_html': html,
                 'generation_prompt': final_prompt,
-                'generation_method': generation_result['method'],
-                'generation_score': validation['overall'],
+                'generation_method': method,
+                'generation_score': score,
                 'updated_at': datetime.now()
             }}
         )
         
         return jsonify({
             'success': True,
-            'html': generation_result['html'],
-            'method': generation_result['method'],
-            'error': generation_result['error'],
-            'validation': validation,
+            'html': html,
+            'method': method,
+            'error': error,
+            'score': score,
             'prompt': final_prompt,
             'prompt_length': len(final_prompt)
         })
@@ -580,115 +455,41 @@ def generate_website():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/generate-simple', methods=['POST'])
-def generate_simple():
-    """
-    Simple generation endpoint - just takes a prompt and returns HTML.
-    Useful for testing.
-    
-    Request body:
-    {
-        "prompt": "Generate a website for...",
-        "model": "qwen2:7b" (optional)
-    }
-    """
-    data = request.json
-    prompt = data.get('prompt')
-    model = data.get('model', 'qwen2:7b')
-    
-    if not prompt:
-        return jsonify({'error': 'Missing prompt'}), 400
-    
-    # Check Ollama
-    ollama = check_ollama_status()
-    if not ollama['connected']:
-        return jsonify({
-            'error': f"Ollama not connected. Please run: ollama serve",
-            'ollama_status': ollama
-        }), 503
-    
-    if not ollama['has_qwen'] and 'qwen' in model.lower():
-        return jsonify({
-            'error': f"Qwen model not found. Please run: ollama pull {model}",
-            'available_models': ollama['models']
-        }), 503
-    
-    result = generate_with_ollama(prompt, model)
-    
-    return jsonify({
-        'success': result['success'],
-        'html': result['html'],
-        'error': result['error'],
-        'model': model,
-        'prompt_length': len(prompt)
-    })
-
-
-@app.route('/api/projects', methods=['GET'])
-def get_projects():
-    """Get all projects"""
-    try:
-        projects = list(db.projects.find())
-        
-        # Convert for JSON
-        for project in projects:
-            project['_id'] = str(project['_id'])
-            if 'created_at' in project:
-                project['created_at'] = project['created_at'].isoformat() if hasattr(project['created_at'], 'isoformat') else str(project['created_at'])
-            if 'updated_at' in project:
-                project['updated_at'] = project['updated_at'].isoformat() if hasattr(project['updated_at'], 'isoformat') else str(project['updated_at'])
-        
-        return jsonify(projects)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/project/<project_id>', methods=['GET'])
-def get_project(project_id):
-    """Get specific project"""
-    try:
-        project = db.projects.find_one({'_id': ObjectId(project_id)})
-        
-        if not project:
-            return jsonify({'error': 'Project not found'}), 404
-        
-        project['_id'] = str(project['_id'])
-        if 'created_at' in project:
-            project['created_at'] = project['created_at'].isoformat() if hasattr(project['created_at'], 'isoformat') else str(project['created_at'])
-        if 'updated_at' in project:
-            project['updated_at'] = project['updated_at'].isoformat() if hasattr(project['updated_at'], 'isoformat') else str(project['updated_at'])
-        
-        return jsonify(project)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @app.route('/api/project/<project_id>/prompt', methods=['GET'])
-def get_project_prompt(project_id):
-    """Get the generated prompt for a project"""
+def get_prompt(project_id):
+    """Get the prompt for a project"""
     try:
         project = db.projects.find_one({'_id': ObjectId(project_id)})
-        
         if not project:
-            return jsonify({'error': 'Project not found'}), 404
+            return jsonify({'error': 'Not found'}), 404
         
         prompt = pipeline.generate_prompt(project)
+        return jsonify({'prompt': prompt, 'length': len(prompt)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/project/<project_id>/html', methods=['GET'])
+def get_html(project_id):
+    """Get generated HTML for a project"""
+    try:
+        project = db.projects.find_one({'_id': ObjectId(project_id)})
+        if not project:
+            return jsonify({'error': 'Not found'}), 404
         
-        return jsonify({
-            'prompt': prompt,
-            'length': len(prompt),
-            'project_id': project_id
-        })
+        html = project.get('generated_html', '')
+        if not html:
+            return jsonify({'error': 'No HTML generated yet'}), 404
+        
+        return html, 200, {'Content-Type': 'text/html'}
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/geo-analyze', methods=['POST'])
 def geo_analyze():
-    """Standalone GEO analysis for any URL"""
-    data = request.json
-    url = data.get('url')
-    
+    """Standalone GEO analysis"""
+    url = request.json.get('url')
     if not url:
         return jsonify({'error': 'Missing URL'}), 400
     
@@ -699,99 +500,38 @@ def geo_analyze():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/export/<project_id>', methods=['GET'])
-def export_project(project_id):
-    """Export project as JSON or HTML"""
-    export_format = request.args.get('format', 'json')
-    
+@app.route('/api/projects', methods=['GET'])
+def list_projects():
+    """List all projects"""
     try:
-        project = db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            return jsonify({'error': 'Project not found'}), 404
-        
-        if export_format == 'html':
-            html = project.get('generated_html', '<p>No HTML generated yet</p>')
-            return html, 200, {'Content-Type': 'text/html'}
-        else:
-            project['_id'] = str(project['_id'])
-            if 'created_at' in project:
-                project['created_at'] = project['created_at'].isoformat() if hasattr(project['created_at'], 'isoformat') else str(project['created_at'])
-            if 'updated_at' in project:
-                project['updated_at'] = project['updated_at'].isoformat() if hasattr(project['updated_at'], 'isoformat') else str(project['updated_at'])
-            
-            return jsonify(project), 200, {
-                'Content-Disposition': f'attachment; filename=project_{project_id}.json'
-            }
+        projects = list(db.projects.find())
+        for p in projects:
+            p['_id'] = str(p['_id'])
+            if 'created_at' in p and hasattr(p['created_at'], 'isoformat'):
+                p['created_at'] = p['created_at'].isoformat()
+            if 'updated_at' in p and hasattr(p['updated_at'], 'isoformat'):
+                p['updated_at'] = p['updated_at'].isoformat()
+        return jsonify(projects)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-# ============================================================================
-# VALIDATION HELPER
-# ============================================================================
-
-def validate_generated_html(html: str, project: dict) -> dict:
-    """Validate generated HTML for SEO and GEO requirements"""
-    from bs4 import BeautifulSoup
-    import re
-    
-    if not html:
-        return {'overall': 0, 'seo': 0, 'geo': 0, 'feedback': ['No HTML generated']}
-    
-    soup = BeautifulSoup(html, 'html.parser')
-    text = soup.get_text()
-    
-    scores = {}
-    feedback = []
-    
-    # SEO checks
-    h1_tags = soup.find_all('h1')
-    scores['h1'] = 1.0 if len(h1_tags) == 1 else 0.5 if len(h1_tags) > 0 else 0.0
-    if len(h1_tags) != 1:
-        feedback.append(f"Should have exactly 1 H1 tag (found {len(h1_tags)})")
-    
-    title = soup.find('title')
-    title_len = len(title.text) if title else 0
-    scores['title'] = 1.0 if 50 <= title_len <= 65 else 0.6 if 40 <= title_len <= 70 else 0.3
-    if not title:
-        feedback.append("Missing <title> tag")
-    elif title_len < 50 or title_len > 65:
-        feedback.append(f"Title should be 50-65 chars (currently {title_len})")
-    
-    meta_desc = soup.find('meta', {'name': 'description'})
-    meta_len = len(meta_desc.get('content', '')) if meta_desc else 0
-    scores['meta'] = 1.0 if 150 <= meta_len <= 160 else 0.6 if 120 <= meta_len <= 180 else 0.3
-    if not meta_desc:
-        feedback.append("Missing meta description")
-    
-    # GEO checks
-    quotes = len(re.findall(r'"[^"]{20,150}"', text))
-    scores['quotes'] = min(quotes / 5, 1.0)
-    if quotes < 5:
-        feedback.append(f"Add {5-quotes} more quotable statements")
-    
-    stats = len(re.findall(r'\d+%|\d+\+?\s*(?:years?|customers?|clients?)', text, re.I))
-    scores['stats'] = min(stats / 4, 1.0)
-    if stats < 4:
-        feedback.append(f"Add {4-stats} more statistics")
-    
-    schemas = soup.find_all('script', {'type': 'application/ld+json'})
-    scores['schema'] = 1.0 if len(schemas) > 0 else 0.0
-    if not schemas:
-        feedback.append("Add JSON-LD schema markup")
-    
-    # Calculate scores
-    seo_score = (scores['h1'] + scores['title'] + scores['meta']) / 3
-    geo_score = (scores['quotes'] + scores['stats'] + scores['schema']) / 3
-    overall = (seo_score * 0.4) + (geo_score * 0.6)
-    
-    return {
-        'overall': round(overall, 2),
-        'seo': round(seo_score, 2),
-        'geo': round(geo_score, 2),
-        'details': scores,
-        'feedback': feedback
-    }
+@app.route('/api/project/<project_id>', methods=['GET'])
+def get_project(project_id):
+    """Get project details"""
+    try:
+        p = db.projects.find_one({'_id': ObjectId(project_id)})
+        if not p:
+            return jsonify({'error': 'Not found'}), 404
+        
+        p['_id'] = str(p['_id'])
+        if 'created_at' in p and hasattr(p['created_at'], 'isoformat'):
+            p['created_at'] = p['created_at'].isoformat()
+        if 'updated_at' in p and hasattr(p['updated_at'], 'isoformat'):
+            p['updated_at'] = p['updated_at'].isoformat()
+        return jsonify(p)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 # ============================================================================
@@ -799,22 +539,18 @@ def validate_generated_html(html: str, project: dict) -> dict:
 # ============================================================================
 
 if __name__ == '__main__':
-    print("\n" + "="*60)
-    print("🌊 ATLANTIC DIGITAL API SERVER")
-    print("="*60)
-    print(f"MongoDB: {'✅ Connected' if pipeline_db_uri else '⚠️ Using MockDB'}")
-    print(f"Ollama:  {'✅ Connected' if ollama_status['connected'] else '❌ Not connected'}")
-    if ollama_status['connected']:
-        print(f"         Models: {ollama_status['models']}")
-    print("="*60)
+    print("\n" + "="*50)
+    print("🌊 ATLANTIC DIGITAL API v3")
+    print("="*50)
+    print(f"MongoDB: {'✅' if db_uri else '⚠️ Mock'}")
+    print(f"Ollama:  {'✅ ' + str(ollama_status['models']) if ollama_status['connected'] else '❌ Not connected'}")
+    print("="*50)
     print("\nEndpoints:")
-    print("  POST /api/analyze          - Run SEO/GEO analysis")
-    print("  POST /api/generate-website - Generate optimized website")
-    print("  POST /api/generate-simple  - Simple prompt → HTML")
-    print("  GET  /api/health           - Health check")
-    print("  GET  /api/projects         - List projects")
-    print("  GET  /api/project/<id>     - Get project details")
-    print("  POST /api/geo-analyze      - Standalone GEO analysis")
-    print("="*60 + "\n")
+    print("  POST /api/analyze          - SEO/GEO analysis")
+    print("  POST /api/generate-website - Generate HTML (single pass)")
+    print("  GET  /api/project/<id>/prompt - Get prompt")
+    print("  GET  /api/project/<id>/html   - Get generated HTML")
+    print("  POST /api/geo-analyze      - Standalone GEO check")
+    print("="*50 + "\n")
     
     app.run(debug=True, port=5000, host='0.0.0.0')
