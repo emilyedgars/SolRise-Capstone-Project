@@ -15,3 +15,4 @@ frontend/.env.local
 # If running mongo locally we don't commit it, but just in case
 data/
 backend/.env
+backend/.env
