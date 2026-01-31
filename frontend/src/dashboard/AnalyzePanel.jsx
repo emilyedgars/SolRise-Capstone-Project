@@ -45,7 +45,10 @@ const AnalyzePanel = ({ state, setState, setPanel }) => {
 
             clearInterval(stepInterval);
 
-            if (!response.ok) throw new Error('Analysis failed');
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.error || `Server error (${response.status})`);
+            }
 
             const data = await response.json();
 
@@ -56,9 +59,12 @@ const AnalyzePanel = ({ state, setState, setPanel }) => {
             // setPanel('results'); // Removed auto-redirect to debug
         } catch (error) {
             console.error(error);
-            setLogs(prev => [...prev, '❌ Error: ' + error.message]);
+            const msg = error.name === 'TypeError' && error.message.includes('fetch')
+                ? 'Cannot connect to backend server. Please ensure the Flask app is running.'
+                : error.message;
+            setLogs(prev => [...prev, '❌ Error: ' + msg]);
             setRunning(false);
-            alert('Analysis Failed: ' + error.message);
+            alert('Analysis Failed: ' + msg);
         }
     };
 

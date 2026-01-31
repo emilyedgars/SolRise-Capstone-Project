@@ -1,7 +1,7 @@
 import sys
 import os
 import asyncio
-from pipeline import AtlanticDigitalPipeline
+from pipeline_v4 import AtlanticDigitalPipeline
 
 # Mock DB not needed for this test
 pipeline = AtlanticDigitalPipeline(mongodb_uri=None)

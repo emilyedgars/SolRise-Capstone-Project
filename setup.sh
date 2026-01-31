@@ -27,21 +27,33 @@ fi
 echo ""
 echo "Step 2: Setting up Backend..."
 cd backend
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
+if [ ! -d ".venv" ]; then
+    echo "Creating virtual environment (.venv)..."
+    python3 -m venv .venv
 fi
 
 echo "Activating virtual environment..."
-source venv/bin/activate
+source .venv/bin/activate
+
+echo "Upgrading pip..."
+python3 -m pip install --upgrade pip
 
 echo "Installing dependencies (this may take a minute)..."
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 python3 -m playwright install
 
 echo "Downloading NLP models..."
 python3 -m spacy download en_core_web_sm
 python3 -c "import nltk; nltk.download('stopwords'); nltk.download('wordnet')"
+
+if command -v direnv &> /dev/null; then
+    echo "✅ direnv found, allowing .envrc..."
+    echo "layout python" > .envrc
+    direnv allow
+else
+    echo "💡 Tip: Install 'direnv' (brew install direnv) to auto-activate this venv when you cd into backend/"
+    echo "source .venv/bin/activate" > .envrc
+fi
 
 cd ..
 

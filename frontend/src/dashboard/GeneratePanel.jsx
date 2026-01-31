@@ -5,6 +5,7 @@ const GeneratePanel = ({ results, info, projectId }) => {
     const [html, setHtml] = useState('');
     const [prompt, setPrompt] = useState(results?.generatedPrompt || '');
     const [stats, setStats] = useState(null);
+    const [showPreview, setShowPreview] = useState(false);
 
     const generate = async () => {
         if (!projectId) { alert('No project ID found. Run analysis first.'); return; }
@@ -31,6 +32,20 @@ const GeneratePanel = ({ results, info, projectId }) => {
             alert('Error generating website: ' + e.message);
         }
         setGenerating(false);
+    };
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(html);
+        alert('HTML copied to clipboard!');
+    };
+
+    const downloadHtml = () => {
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `optimized-website-${projectId}.html`;
+        a.click();
     };
 
     if (!results) return (
@@ -101,13 +116,36 @@ const GeneratePanel = ({ results, info, projectId }) => {
                         <pre style={{ color: '#95a5a6', fontSize: '0.8rem', fontFamily: 'monospace', margin: 0, whiteSpace: 'pre-wrap' }}>{html.slice(0, 2000)}...</pre>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                        {['📋 Copy HTML', '💾 Download', '👁️ Preview'].map((a, i) => (
-                            <button key={i} style={{
-                                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                                color: 'white', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', fontSize: '0.9rem'
-                            }}>{a}</button>
-                        ))}
+                        <button onClick={copyToClipboard} style={{
+                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'white', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', fontSize: '0.9rem'
+                        }}>📋 Copy HTML</button>
+                        <button onClick={downloadHtml} style={{
+                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                            color: 'white', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', fontSize: '0.9rem'
+                        }}>💾 Download</button>
+                        <button onClick={() => setShowPreview(!showPreview)} style={{
+                            background: showPreview ? '#4ECDC4' : 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: showPreview ? 'black' : 'white', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', fontSize: '0.9rem'
+                        }}>👁️ {showPreview ? 'Hide Preview' : 'Show Preview'}</button>
                     </div>
+
+                    {showPreview && (
+                        <div style={{ marginTop: '2rem', border: '1px solid #4ECDC4', borderRadius: 12, overflow: 'hidden', background: 'white' }}>
+                            <div style={{ background: '#f0f0f0', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd' }}>
+                                <span style={{ color: '#333', fontSize: '0.85rem', fontWeight: 600 }}>Live Preview</span>
+                                <div style={{ display: 'flex', gap: '5px' }}>
+                                    {[1, 2, 3].map(i => <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: i === 1 ? '#ff5f56' : i === 2 ? '#ffbd2e' : '#27c93f' }} />)}
+                                </div>
+                            </div>
+                            <iframe
+                                title="Website Preview"
+                                srcDoc={html}
+                                style={{ width: '100%', height: '600px', border: 'none' }}
+                            />
+                        </div>
+                    )}
                 </div>
             )}
         </div>
