@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 const GeneratePanel = ({ results, info, projectId }) => {
     const [generating, setGenerating] = useState(false);
@@ -6,6 +6,19 @@ const GeneratePanel = ({ results, info, projectId }) => {
     const [prompt, setPrompt] = useState(results?.generatedPrompt || '');
     const [stats, setStats] = useState(null);
     const [showPreview, setShowPreview] = useState(false);
+    const [previewUrl, setPreviewUrl] = useState('');
+    const prevUrlRef = useRef('');
+
+    useEffect(() => {
+        if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current);
+        if (html) {
+            const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            setPreviewUrl(url);
+            prevUrlRef.current = url;
+        }
+        return () => { if (prevUrlRef.current) URL.revokeObjectURL(prevUrlRef.current); };
+    }, [html]);
 
     const generate = async () => {
         if (!projectId) { alert('No project ID found. Run analysis first.'); return; }
@@ -141,7 +154,7 @@ const GeneratePanel = ({ results, info, projectId }) => {
                             </div>
                             <iframe
                                 title="Website Preview"
-                                srcDoc={html}
+                                src={previewUrl}
                                 style={{ width: '100%', height: '600px', border: 'none' }}
                             />
                         </div>

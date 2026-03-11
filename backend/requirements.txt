@@ -9,3 +9,4 @@ sentence-transformers>=2.2.0
 numpy>=1.24.0
 crawl4ai>=0.8.0
 python-dotenv>=1.0.0
+anthropic>=0.84.0

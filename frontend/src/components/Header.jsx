@@ -18,7 +18,7 @@ const Header = ({ activeTab, setActiveTab, isScrolled }) => (
             </div>
 
             <nav style={{ display: 'flex', gap: '0.5rem' }}>
-                {['home', 'services', 'about', 'contact'].map(tab => (
+                {['home', 'services', 'analyzer', 'about', 'contact'].map(tab => (
                     <button key={tab} onClick={() => setActiveTab(tab)}
                         style={{
                             background: activeTab === tab ? 'rgba(255,255,255,0.2)' : 'rgba(44, 62, 80, 0.3)',

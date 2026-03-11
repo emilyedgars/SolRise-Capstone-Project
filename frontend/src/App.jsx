@@ -6,6 +6,7 @@ import ServicesPage from './pages/ServicesPage';
 import AboutPage from './pages/AboutPage';
 import ContactPage from './pages/ContactPage';
 import DashboardPage from './pages/DashboardPage';
+import AnalyzerPage from './pages/AnalyzerPage';
 
 const App = () => {
     const [activeTab, setActiveTab] = useState('home');
@@ -25,6 +26,7 @@ const App = () => {
             {activeTab === 'services' && <ServicesPage />}
             {activeTab === 'about' && <AboutPage />}
             {activeTab === 'contact' && <ContactPage />}
+            {activeTab === 'analyzer' && <AnalyzerPage />}
             {activeTab === 'dashboard' && <DashboardPage />}
 
             {activeTab !== 'dashboard' && <Footer />}
