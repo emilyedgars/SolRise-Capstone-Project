@@ -17,7 +17,7 @@ const ResultsPanel = ({ results }) => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `atlantic_digital_report_${(results.clientName || 'report').replace(/\s+/g, '_').toLowerCase()}.pdf`;
+            a.download = `solrise_report_${(results.clientName || 'report').replace(/\s+/g, '_').toLowerCase()}.pdf`;
             a.click();
             URL.revokeObjectURL(url);
         } catch (e) {
@@ -53,7 +53,7 @@ const ResultsPanel = ({ results }) => {
             {/* Score Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                 {[
-                    { label: 'Overall Score', score: results.overallScore, color: '#4ECDC4' },
+                    { label: 'Overall Score', score: results.overallScore, color: '#F7A14F' },
                     { label: 'SEO Score', score: results.seoScore, color: '#3498db' },
                     { label: 'GEO Score', score: results.geoScore, color: '#9b59b6' },
                     { label: 'Competitive Parity', score: results.competitiveScore, color: '#e67e22' }
@@ -77,7 +77,7 @@ const ResultsPanel = ({ results }) => {
                             <PolarGrid stroke="#34495e" />
                             <PolarAngleAxis dataKey="subject" tick={{ fill: '#95a5a6', fontSize: 12 }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#95a5a6' }} />
-                            <Radar name="Client" dataKey="client" stroke="#4ECDC4" fill="#4ECDC4" fillOpacity={0.5} />
+                            <Radar name="Client" dataKey="client" stroke="#F7A14F" fill="#F7A14F" fillOpacity={0.5} />
                             <Radar name="Competitors" dataKey="competitor" stroke="#e74c3c" fill="#e74c3c" fillOpacity={0.3} />
                             <Tooltip />
                         </RadarChart>
@@ -92,7 +92,7 @@ const ResultsPanel = ({ results }) => {
                             <XAxis type="number" tick={{ fill: '#95a5a6' }} />
                             <YAxis dataKey="keyword" type="category" tick={{ fill: '#95a5a6', fontSize: 11 }} width={120} />
                             <Tooltip />
-                            <Bar dataKey="score" fill="#4ECDC4" radius={[0, 4, 4, 0]} />
+                            <Bar dataKey="score" fill="#F7A14F" radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -139,12 +139,12 @@ const ResultsPanel = ({ results }) => {
                         <div key={i} style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 10 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
                                 <span>{c.name}</span>
-                                <span style={{ color: c.score >= 0.7 ? '#4ECDC4' : '#e74c3c' }}>{(c.score * 100).toFixed(0)}%</span>
+                                <span style={{ color: c.score >= 0.7 ? '#F7A14F' : '#e74c3c' }}>{(c.score * 100).toFixed(0)}%</span>
                             </div>
                             <div style={{ height: 8, background: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden', marginBottom: '0.5rem' }}>
                                 <div style={{
                                     height: '100%', borderRadius: 4, width: `${c.score * 100}%`,
-                                    background: c.score >= 0.7 ? '#4ECDC4' : c.score >= 0.5 ? '#f39c12' : '#e74c3c'
+                                    background: c.score >= 0.7 ? '#F7A14F' : c.score >= 0.5 ? '#f39c12' : '#e74c3c'
                                 }} />
                             </div>
                             <p style={{ color: '#95a5a6', fontSize: '0.8rem', margin: 0 }}>{c.tip}</p>
@@ -169,7 +169,7 @@ const ResultsPanel = ({ results }) => {
                     critical: { background: 'rgba(231,76,60,0.08)', borderLeft: '3px solid #e74c3c' },
                     high:     { background: 'rgba(243,156,18,0.08)', borderLeft: '3px solid #f39c12' },
                     medium:   { background: 'rgba(52,152,219,0.08)', borderLeft: '3px solid #3498db' },
-                    good:     { background: 'rgba(78,205,196,0.08)', borderLeft: '3px solid #4ECDC4' },
+                    good:     { background: 'rgba(247,161,79,0.08)', borderLeft: '3px solid #F7A14F' },
                 };
 
                 return (
@@ -199,7 +199,7 @@ const ResultsPanel = ({ results }) => {
                         borderLeft: `4px solid ${r.priority === 'CRITICAL' ? '#e74c3c' : r.priority === 'HIGH' ? '#f39c12' : '#3498db'}`
                     }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, marginRight: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: 4, background: 'rgba(255,255,255,0.1)' }}>{r.priority}</span>
-                        <span style={{ color: '#4ECDC4', fontSize: '0.85rem', fontWeight: 600 }}>{r.category}</span>
+                        <span style={{ color: '#F7A14F', fontSize: '0.85rem', fontWeight: 600 }}>{r.category}</span>
                         <p style={{ color: '#95a5a6', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>{r.message}</p>
                     </div>
                 ))}
@@ -207,8 +207,8 @@ const ResultsPanel = ({ results }) => {
 
             {/* Optimized Prompt Preview */}
             {results.generatedPrompt && (
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: 15, border: '1px solid #4ECDC4', marginTop: '2rem' }}>
-                    <h3 style={{ marginBottom: '1rem', color: '#4ECDC4' }}>✨ AI-Optimized Website Prompt</h3>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: 15, border: '1px solid #F7A14F', marginTop: '2rem' }}>
+                    <h3 style={{ marginBottom: '1rem', color: '#F7A14F' }}>✨ AI-Optimized Website Prompt</h3>
                     <p style={{ color: '#95a5a6', marginBottom: '1rem' }}>This prompt has been crafted based on the analysis gaps. Use it to generate a high-performing website.</p>
                     <div style={{ background: '#1a1f2e', padding: '1rem', borderRadius: 10, fontFamily: 'monospace', fontSize: '0.85rem', color: '#e0fbff', whiteSpace: 'pre-wrap', maxHeight: '200px', overflowY: 'auto' }}>
                         {results.generatedPrompt}

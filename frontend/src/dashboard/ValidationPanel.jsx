@@ -34,7 +34,7 @@ const ValidationPanel = () => {
 
             <button onClick={run} disabled={validating || !html}
                 style={{
-                    background: 'linear-gradient(135deg, #4ECDC4, #44A08D)', color: 'white', padding: '1rem 2rem',
+                    background: 'linear-gradient(135deg, #F7A14F, #F07A63)', color: 'white', padding: '1rem 2rem',
                     border: 'none', borderRadius: 12, fontSize: '1rem', fontWeight: 600, cursor: 'pointer', width: '100%', marginBottom: '2rem'
                 }}>
                 {validating ? '🔄 Running Validation Loop...' : '🚀 Start Validation Loop'}
@@ -43,8 +43,8 @@ const ValidationPanel = () => {
             {iterations.length > 0 && iterations.map((iter, i) => (
                 <div key={i} style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: 12, marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                        <span style={{ color: '#4ECDC4', fontWeight: 600 }}>Iteration {iter.iteration}</span>
-                        <span style={{ fontSize: '1.5rem', fontWeight: 700, color: iter.overall >= 0.8 ? '#4ECDC4' : '#f39c12' }}>{(iter.overall * 100).toFixed(0)}%</span>
+                        <span style={{ color: '#F7A14F', fontWeight: 600 }}>Iteration {iter.iteration}</span>
+                        <span style={{ fontSize: '1.5rem', fontWeight: 700, color: iter.overall >= 0.8 ? '#F7A14F' : '#f39c12' }}>{(iter.overall * 100).toFixed(0)}%</span>
                     </div>
                     <div style={{ display: 'flex', gap: '1.5rem', color: '#95a5a6', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
                         <span>SEO: {(iter.seo * 100).toFixed(0)}%</span>

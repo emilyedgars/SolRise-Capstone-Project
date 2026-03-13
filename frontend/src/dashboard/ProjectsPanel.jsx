@@ -52,7 +52,7 @@ const ProjectsPanel = ({ setAnalysis, setPanel }) => {
                                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{p.client_name}</h3>
                                 <span style={{
                                     padding: '0.25rem 0.75rem', borderRadius: 20, fontSize: '0.75rem', fontWeight: 600,
-                                    background: p.status === 'complete' ? '#4ECDC4' : '#f39c12', textTransform: 'capitalize'
+                                    background: p.status === 'complete' ? '#F7A14F' : '#f39c12', textTransform: 'capitalize'
                                 }}>{p.status}</span>
                             </div>
                             <div style={{ display: 'flex', gap: '1.5rem', color: '#95a5a6', fontSize: '0.9rem', marginBottom: '1rem' }}>

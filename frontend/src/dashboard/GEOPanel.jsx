@@ -46,7 +46,7 @@ const GEOPanel = () => {
         setAnalyzing(false);
     };
 
-    const scoreColor = (s) => s >= 75 ? '#4ECDC4' : s >= 50 ? '#f39c12' : '#e74c3c';
+    const scoreColor = (s) => s >= 75 ? '#F7A14F' : s >= 50 ? '#f39c12' : '#e74c3c';
 
     return (
         <div style={{ color: 'white' }}>
@@ -64,7 +64,7 @@ const GEOPanel = () => {
                     style={{ flex: 1, padding: '0.9rem 1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', fontSize: '0.95rem' }}
                 />
                 <button onClick={analyze} disabled={analyzing || !url}
-                    style={{ background: 'linear-gradient(135deg, #4ECDC4, #44A08D)', color: 'white', padding: '0.9rem 1.5rem', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', opacity: (!url || analyzing) ? 0.6 : 1 }}>
+                    style={{ background: 'linear-gradient(135deg, #F7A14F, #F07A63)', color: 'white', padding: '0.9rem 1.5rem', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap', opacity: (!url || analyzing) ? 0.6 : 1 }}>
                     {analyzing ? '⏳ Analyzing...' : '🔍 Analyze'}
                 </button>
             </div>
@@ -94,21 +94,21 @@ const GEOPanel = () => {
                     </div>
 
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: 15 }}>
-                        <h4 style={{ marginBottom: '1.25rem', color: '#4ECDC4' }}>GEO Breakdown</h4>
+                        <h4 style={{ marginBottom: '1.25rem', color: '#F7A14F' }}>GEO Breakdown</h4>
                         {results.checklist.map((item, i) => (
                             <div key={i} style={{ marginBottom: '1.25rem' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span style={{ color: item.pass ? '#4ECDC4' : '#e74c3c', fontSize: '1rem' }}>{item.pass ? '✓' : '✗'}</span>
+                                        <span style={{ color: item.pass ? '#F7A14F' : '#e74c3c', fontSize: '1rem' }}>{item.pass ? '✓' : '✗'}</span>
                                         <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{item.label}</span>
                                     </div>
-                                    <span style={{ color: item.pass ? '#4ECDC4' : '#e74c3c', fontWeight: 700 }}>
+                                    <span style={{ color: item.pass ? '#F7A14F' : '#e74c3c', fontWeight: 700 }}>
                                         {item.raw ? item.value : `${Math.round(item.value * 100)}%`}
                                     </span>
                                 </div>
                                 {!item.raw && (
                                     <div style={{ height: 6, background: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden', marginBottom: '0.25rem' }}>
-                                        <div style={{ height: '100%', borderRadius: 3, width: `${item.value * 100}%`, background: item.pass ? '#4ECDC4' : '#e74c3c', transition: 'width 0.8s ease' }} />
+                                        <div style={{ height: '100%', borderRadius: 3, width: `${item.value * 100}%`, background: item.pass ? '#F7A14F' : '#e74c3c', transition: 'width 0.8s ease' }} />
                                     </div>
                                 )}
                                 <p style={{ color: '#95a5a6', fontSize: '0.8rem', margin: 0 }}>{item.tip}</p>

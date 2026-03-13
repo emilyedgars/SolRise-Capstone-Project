@@ -9,8 +9,8 @@ const SettingsPanel = () => (
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
             {[
-                { icon: '🔑', title: 'Claude API', type: 'password', placeholder: 'sk-ant-...', status: '✓ Connected', statusColor: '#4ECDC4' },
-                { icon: '🗄️', title: 'MongoDB', type: 'text', placeholder: 'mongodb+srv://...', status: '✓ Connected', statusColor: '#4ECDC4' },
+                { icon: '🔑', title: 'Claude API', type: 'password', placeholder: 'sk-ant-...', status: '✓ Connected', statusColor: '#F7A14F' },
+                { icon: '🗄️', title: 'MongoDB', type: 'text', placeholder: 'mongodb+srv://...', status: '✓ Connected', statusColor: '#F7A14F' },
                 { icon: '🦙', title: 'Ollama (Local LLM)', type: 'text', placeholder: 'http://localhost:11434', status: '⚠️ Not configured', statusColor: '#f39c12' },
                 { icon: '📊', title: 'Google Search Console', type: 'button', status: '○ Not connected', statusColor: '#95a5a6' }
             ].map((s, i) => (
@@ -24,8 +24,8 @@ const SettingsPanel = () => (
                             }} />
                     ) : (
                         <button style={{
-                            background: 'rgba(78, 205, 196, 0.1)', border: '1px solid rgba(78, 205, 196, 0.3)',
-                            color: '#4ECDC4', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', width: '100%'
+                            background: 'rgba(247, 161, 79, 0.1)', border: '1px solid rgba(247, 161, 79, 0.3)',
+                            color: '#F7A14F', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', width: '100%'
                         }}>
                             Connect Google Account
                         </button>

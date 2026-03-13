@@ -84,13 +84,13 @@ const GeneratePanel = ({ results, info, projectId }) => {
             </div>
 
             <div style={{ marginBottom: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#4ECDC4', fontWeight: 600 }}>Optimized Prompt (Editable)</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#F7A14F', fontWeight: 600 }}>Optimized Prompt (Editable)</label>
                 <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     style={{
                         width: '100%', minHeight: '150px', padding: '1rem',
-                        background: '#1a1f2e', border: '1px solid rgba(78, 205, 196, 0.3)',
+                        background: '#1a1f2e', border: '1px solid rgba(247, 161, 79, 0.3)',
                         borderRadius: 12, color: '#e0fbff', fontFamily: 'monospace', fontSize: '0.85rem',
                         resize: 'vertical'
                     }}
@@ -99,7 +99,7 @@ const GeneratePanel = ({ results, info, projectId }) => {
 
             <button onClick={generate} disabled={generating}
                 style={{
-                    background: 'linear-gradient(135deg, #4ECDC4, #44A08D)', color: 'white', padding: '1rem 2rem',
+                    background: 'linear-gradient(135deg, #F7A14F, #F07A63)', color: 'white', padding: '1rem 2rem',
                     border: 'none', borderRadius: 12, fontSize: '1rem', fontWeight: 600, cursor: 'pointer', width: '100%',
                     opacity: generating ? 0.7 : 1, marginBottom: '2rem',
                     transition: 'all 0.3s ease'
@@ -120,7 +120,7 @@ const GeneratePanel = ({ results, info, projectId }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                         <h3>Generated HTML</h3>
                         {stats && (
-                            <div style={{ background: 'rgba(78, 205, 196, 0.2)', color: '#4ECDC4', padding: '0.5rem 1rem', borderRadius: 20, fontSize: '0.85rem' }}>
+                            <div style={{ background: 'rgba(247, 161, 79, 0.2)', color: '#F7A14F', padding: '0.5rem 1rem', borderRadius: 20, fontSize: '0.85rem' }}>
                                 ✓ Score: {(stats.score * 100).toFixed(0)}% (Iterations: {stats.iterations})
                             </div>
                         )}
@@ -138,14 +138,14 @@ const GeneratePanel = ({ results, info, projectId }) => {
                             color: 'white', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', fontSize: '0.9rem'
                         }}>💾 Download</button>
                         <button onClick={() => setShowPreview(!showPreview)} style={{
-                            background: showPreview ? '#4ECDC4' : 'rgba(255,255,255,0.05)',
+                            background: showPreview ? '#F7A14F' : 'rgba(255,255,255,0.05)',
                             border: '1px solid rgba(255,255,255,0.1)',
                             color: showPreview ? 'black' : 'white', padding: '0.75rem 1.5rem', borderRadius: 10, cursor: 'pointer', fontSize: '0.9rem'
                         }}>👁️ {showPreview ? 'Hide Preview' : 'Show Preview'}</button>
                     </div>
 
                     {showPreview && (
-                        <div style={{ marginTop: '2rem', border: '1px solid #4ECDC4', borderRadius: 12, overflow: 'hidden', background: 'white' }}>
+                        <div style={{ marginTop: '2rem', border: '1px solid #F7A14F', borderRadius: 12, overflow: 'hidden', background: 'white' }}>
                             <div style={{ background: '#f0f0f0', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd' }}>
                                 <span style={{ color: '#333', fontSize: '0.85rem', fontWeight: 600 }}>Live Preview</span>
                                 <div style={{ display: 'flex', gap: '5px' }}>
