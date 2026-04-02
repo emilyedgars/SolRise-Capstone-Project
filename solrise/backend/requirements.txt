@@ -1,0 +1,14 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+pymongo>=4.10.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+spacy>=3.7.0
+scikit-learn>=1.4.0
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+crawl4ai>=0.8.0
+python-dotenv>=1.0.0
+anthropic>=0.84.0
+matplotlib>=3.7.0
+reportlab>=4.0.0
