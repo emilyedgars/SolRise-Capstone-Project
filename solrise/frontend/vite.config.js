@@ -6,11 +6,9 @@ import react from '@vitejs/plugin-react'
 //  Draft 1 — Atlantic Digital (original):  ENTRY = 'src/main.jsx'
 //  Draft 2 — SolRise (new brand):          ENTRY = 'src/main2.jsx'
 // ─────────────────────────────────────────────────────────
-const ENTRY = 'src/main2.jsx'  // ← change to 'src/main.jsx' for Atlantic Digital draft
-
 export default defineConfig({
     plugins: [react()],
-    build: { rollupOptions: { input: ENTRY } },
+    build: { rollupOptions: { input: 'index.html' } },
     server: {
         proxy: {
             '/api': {
