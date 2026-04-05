@@ -1,4 +1,4 @@
 [build]
-  base    = "frontend"
+  base    = "solrise/frontend"
   command = "npm run build"
   publish = "dist"
