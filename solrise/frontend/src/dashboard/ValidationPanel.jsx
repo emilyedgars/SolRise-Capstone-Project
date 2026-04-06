@@ -46,7 +46,7 @@ const ValidationPanel = ({ projectId, results }) => {
 
     // Build before/after table from real results + last iteration
     const lastIter = iterations[iterations.length - 1];
-    const beforeAfter = results ? [
+    const beforeAfter = [
         {
             metric: 'SEO Score',
             before: seoBefore != null ? (seoBefore <= 1 ? (seoBefore * 100).toFixed(0) + '%' : seoBefore + '%') : '—',
@@ -59,13 +59,6 @@ const ValidationPanel = ({ projectId, results }) => {
             after: lastIter ? (lastIter.geo * 100).toFixed(0) + '%' : '—',
             improvement: geoBefore != null && lastIter ? '+' + ((lastIter.geo - geoBefore) * 100).toFixed(0) + '%' : '—',
         },
-        { metric: 'Claim Density',     before: '1.2',  after: '4.3',   improvement: '+258%' },
-        { metric: 'Schema Compliance', before: '0%',   after: '100%',  improvement: '+100%' },
-    ] : [
-        { metric: 'SEO Score',         before: '0.54', after: '0.78',  improvement: '+44%' },
-        { metric: 'GEO Score',         before: '0.41', after: '0.72',  improvement: '+75%' },
-        { metric: 'Claim Density',     before: '1.2',  after: '4.3',   improvement: '+258%' },
-        { metric: 'Schema Compliance', before: '0%',   after: '100%',  improvement: '+100%' },
     ];
 
     return (
@@ -75,37 +68,35 @@ const ValidationPanel = ({ projectId, results }) => {
                 <p style={{ color: '#95a5a6' }}>Iteratively validates generated HTML against SEO/GEO targets and saves results</p>
             </div>
 
-            {/* Before / After Comparison Table */}
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '1.5rem', marginBottom: '2rem' }}>
-                <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 600, color: '#95a5a6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Post-Generation Score Improvements
-                </h3>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.92rem' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                            {['Metric', 'Before', 'After', 'Improvement'].map(h => (
-                                <th key={h} style={{ padding: '0.6rem 1rem', textAlign: h === 'Metric' ? 'left' : 'center', color: '#95a5a6', fontWeight: 600, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {beforeAfter.map((row, i) => (
-                            <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                <td style={{ padding: '0.75rem 1rem', color: 'white', fontWeight: 500 }}>{row.metric}</td>
-                                <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#95a5a6' }}>{row.before}</td>
-                                <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#F7A14F', fontWeight: 600 }}>{row.after}</td>
-                                <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
-                                    <span style={{ background: 'rgba(247,161,79,0.12)', color: '#F7A14F', padding: '0.2rem 0.65rem', borderRadius: 20, fontWeight: 700, fontSize: '0.85rem' }}>{row.improvement}</span>
-                                </td>
+            {/* Before / After Comparison Table — only shown after a validation run */}
+            {iterations.length > 0 && (
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '1.5rem', marginBottom: '2rem' }}>
+                    <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 600, color: '#95a5a6', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Post-Generation Score Improvements
+                    </h3>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.92rem' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                {['Metric', 'Before', 'After', 'Improvement'].map(h => (
+                                    <th key={h} style={{ padding: '0.6rem 1rem', textAlign: h === 'Metric' ? 'left' : 'center', color: '#95a5a6', fontWeight: 600, fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
+                                ))}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-                <p style={{ margin: '0.75rem 0 0', fontSize: '0.78rem', color: 'rgba(255,255,255,0.25)', fontStyle: 'italic' }}>
-                    Table 12 — One optimised prototype page re-evaluated via the same scoring functions.
-                    {iterations.length > 0 && ' Results saved from last run.'}
-                </p>
-            </div>
+                        </thead>
+                        <tbody>
+                            {beforeAfter.map((row, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <td style={{ padding: '0.75rem 1rem', color: 'white', fontWeight: 500 }}>{row.metric}</td>
+                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#95a5a6' }}>{row.before}</td>
+                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: '#F7A14F', fontWeight: 600 }}>{row.after}</td>
+                                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                        <span style={{ background: 'rgba(247,161,79,0.12)', color: '#F7A14F', padding: '0.2rem 0.65rem', borderRadius: 20, fontWeight: 700, fontSize: '0.85rem' }}>{row.improvement}</span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
 
             {/* Status / error */}
             {!hasHtml && projectId && (

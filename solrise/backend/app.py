@@ -53,6 +53,8 @@ try:
     # Create indexes for better performance
     db.projects.create_index('client_name')
     db.projects.create_index('created_at')
+    db.leads.create_index('email')
+    db.leads.create_index('created_at')
     
     using_mongodb = True
     print(f"✅ MongoDB connected: {MONGODB_URI}")
@@ -115,6 +117,7 @@ except Exception as e:
         def __init__(self):
             self.projects = InMemoryCollection('projects')
             self.analyses = InMemoryCollection('analyses')
+            self.leads    = InMemoryCollection('leads')
     
     db = InMemoryDB()
 
@@ -242,15 +245,30 @@ def analyze():
     try:
         # Create project document
         project = {
-            'client_name': data['clientName'],
-            'client_url': data['clientUrl'],
-            'location': data.get('location', ''),
-            'industry': data.get('industry', ''),
-            'competitors': [c.strip() for c in data.get('competitors', []) if c and c.strip()],
-            'status': 'analyzing',
-            'created_at': datetime.utcnow(),
-            'updated_at': datetime.utcnow()
+            'client_name':  data['clientName'],
+            'client_url':   data['clientUrl'],
+            'client_email': data.get('clientEmail', ''),
+            'client_phone': data.get('clientPhone', ''),
+            'location':     data.get('location', ''),
+            'industry':     data.get('industry', ''),
+            'competitors':  [c.strip() for c in data.get('competitors', []) if c and c.strip()],
+            'status':       'analyzing',
+            'source':       'quiz',
+            'created_at':   datetime.utcnow(),
+            'updated_at':   datetime.utcnow()
         }
+
+        # Also upsert into leads collection so we capture contact even if analysis fails
+        if data.get('clientEmail'):
+            db.leads.insert_one({
+                'name':       data['clientName'],
+                'email':      data.get('clientEmail', ''),
+                'phone':      data.get('clientPhone', ''),
+                'website':    data['clientUrl'],
+                'industry':   data.get('industry', ''),
+                'source':     'quiz_analysis',
+                'created_at': datetime.utcnow(),
+            })
         
         # Save to database
         result = db.projects.insert_one(project)
@@ -315,6 +333,45 @@ def analyze():
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/leads', methods=['POST'])
+def create_lead():
+    """Register a prospect who clicked 'Get Full Report'"""
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No JSON data provided'}), 400
+    if not data.get('email'):
+        return jsonify({'error': 'Email is required'}), 400
+
+    lead = {
+        'name':       data.get('name', ''),
+        'email':      data['email'],
+        'phone':      data.get('phone', ''),
+        'website':    data.get('website', ''),
+        'industry':   data.get('industry', ''),
+        'goal':       data.get('goal', ''),
+        'challenges': data.get('challenges', []),
+        'source':     'full_report_request',
+        'created_at': datetime.utcnow(),
+    }
+
+    try:
+        result = db.leads.insert_one(lead)
+        print(f"✅ New lead saved: {lead['email']} (id={result.inserted_id})")
+        return jsonify({'success': True, 'id': str(result.inserted_id)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/leads', methods=['GET'])
+def list_leads():
+    """List all captured leads (internal use)"""
+    try:
+        leads = db.leads.find({})
+        return jsonify([serialize_doc(l) for l in leads])
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
