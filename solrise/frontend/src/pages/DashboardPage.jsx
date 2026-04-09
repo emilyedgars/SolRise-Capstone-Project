@@ -17,7 +17,6 @@ const SR = {
     pill:        9999,
 };
 
-// SolRise logo for sidebar (uses real PNG)
 const SidebarLogo = () => (
     <img
         src="/solrise-logo.png"
@@ -27,15 +26,16 @@ const SidebarLogo = () => (
 );
 
 const NAV_ITEMS = [
-    { icon: '✨', label: 'Free Analysis Quiz', key: 'quiz'       },
-    { icon: '🔍', label: 'New Analysis',       key: 'analyze'    },
-    { icon: '📊', label: 'View Results',       key: 'results'    },
-    { icon: '⚡', label: 'Generate Website',   key: 'generate'   },
-    { icon: '📈', label: 'GEO Analyser',       key: 'geo'        },
-    { icon: '🔄', label: 'Validation Loop',    key: 'validation' },
-    { icon: '📁', label: 'Projects',           key: 'projects'   },
-    { icon: '⚙️', label: 'Settings',           key: 'settings'   },
+    { icon: '🔍', label: 'New Analysis',     key: 'analyze'    },
+    { icon: '📊', label: 'View Results',     key: 'results'    },
+    { icon: '⚡', label: 'Generate Website', key: 'generate'   },
+    { icon: '📈', label: 'GEO Analyser',     key: 'geo'        },
+    { icon: '🔄', label: 'Validation Loop',  key: 'validation' },
+    { icon: '📁', label: 'Projects',         key: 'projects'   },
+    { icon: '⚙️', label: 'Settings',         key: 'settings'   },
 ];
+
+const PASSCODE = '1212';
 
 const DashboardPage = ({ setActiveTab }) => {
     const [panel,    setPanel]    = useState('analyze');
@@ -44,6 +44,70 @@ const DashboardPage = ({ setActiveTab }) => {
         clientName: '', location: '', industry: '',
         results: null, projectId: null,
     });
+    const [unlocked,  setUnlocked]  = useState(false);
+    const [input,     setInput]     = useState('');
+    const [error,     setError]     = useState(false);
+
+    const handleLogin = () => {
+        if (input === PASSCODE) {
+            setUnlocked(true);
+            setError(false);
+        } else {
+            setError(true);
+            setInput('');
+        }
+    };
+
+    if (!unlocked) {
+        return (
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                minHeight: '100vh', background: '#0F0F1A', fontFamily: SR.font,
+            }}>
+                <div style={{
+                    background: '#1A1A2E', borderRadius: 20, padding: '3rem 2.5rem',
+                    border: '1px solid rgba(247,161,79,0.15)', textAlign: 'center',
+                    width: '100%', maxWidth: 360,
+                }}>
+                    <img src="/solrise-logo.png" alt="SolRise" style={{ height: 56, marginBottom: '1.5rem' }} />
+                    <h2 style={{ color: SR.white, fontWeight: 700, fontSize: '1.3rem', marginBottom: '0.4rem' }}>
+                        Internal Tools
+                    </h2>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.875rem', marginBottom: '2rem' }}>
+                        Enter your passcode to continue
+                    </p>
+                    <input
+                        type="password"
+                        value={input}
+                        onChange={e => { setInput(e.target.value); setError(false); }}
+                        onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                        placeholder="Passcode"
+                        style={{
+                            width: '100%', padding: '0.85rem 1rem', borderRadius: 10,
+                            border: `1px solid ${error ? SR.coral : 'rgba(247,161,79,0.2)'}`,
+                            background: 'rgba(255,255,255,0.05)', color: SR.white,
+                            fontSize: '1rem', fontFamily: SR.font, marginBottom: '0.75rem',
+                            outline: 'none', boxSizing: 'border-box', textAlign: 'center',
+                            letterSpacing: '0.3em',
+                        }}
+                        autoFocus
+                    />
+                    {error && (
+                        <p style={{ color: SR.coral, fontSize: '0.82rem', marginBottom: '0.75rem' }}>
+                            Incorrect passcode. Try again.
+                        </p>
+                    )}
+                    <button onClick={handleLogin} style={{
+                        width: '100%', background: SR.btnGradient, color: SR.white,
+                        border: 'none', borderRadius: 10, padding: '0.85rem',
+                        fontSize: '1rem', fontWeight: 700, cursor: 'pointer', fontFamily: SR.font,
+                    }}>
+                        Unlock →
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh', background: '#0F0F1A', fontFamily: SR.font }}>
@@ -116,14 +180,6 @@ const DashboardPage = ({ setActiveTab }) => {
                     minHeight: 'calc(100vh - 4rem)',
                     border: '1px solid rgba(247,161,79,0.08)',
                 }}>
-                    {panel === 'quiz'       && <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '1.5rem', textAlign: 'center' }}>
-                        <div style={{ fontSize: '3rem' }}>✨</div>
-                        <h2 style={{ color: 'white', fontSize: '1.8rem', fontWeight: 700, margin: 0 }}>Free Analysis Quiz</h2>
-                        <p style={{ color: '#95a5a6', maxWidth: 400, lineHeight: 1.6 }}>Answer a few quick questions and get your personalised SEO & GEO report, powered by AI.</p>
-                        <button onClick={() => setActiveTab && setActiveTab('quiz')} style={{ background: 'linear-gradient(135deg, #F7A14F, #F07A63)', color: 'white', border: 'none', borderRadius: 12, padding: '1rem 2.5rem', fontSize: '1rem', fontWeight: 700, cursor: 'pointer' }}>
-                            Start Free Quiz →
-                        </button>
-                    </div>}
                     {panel === 'analyze'    && <AnalyzePanel    state={analysis} setState={setAnalysis} setPanel={setPanel} />}
                     {panel === 'results'    && <ResultsPanel    results={analysis.results} />}
                     {panel === 'generate'   && <GeneratePanel   results={analysis.results} projectId={analysis.projectId} info={{ name: analysis.clientName, location: analysis.location, industry: analysis.industry }} />}

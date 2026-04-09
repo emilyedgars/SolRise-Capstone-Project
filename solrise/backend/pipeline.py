@@ -1,12 +1,11 @@
 """
-SolRise - Stable Pipeline Interface
-====================================
-This is the main entry point for the backend.
-It allows us to swap pipeline implementations without changing the API code.
+pipeline.py — SolRise Analysis Pipeline
+========================================
+Entry point for the analysis backend. Imports the current pipeline
+implementation so that app.py never needs to change when the pipeline
+is updated.
 """
 
-# Switch this import to change versions
 from pipelines.pipeline_v8 import SolRisePipeline
 
-# Export for use in app.py
 __all__ = ['SolRisePipeline']
