@@ -168,4 +168,3 @@ cd frontend && npm run dev
 | `MONGO_URI` | MongoDB connection string | `mongodb://127.0.0.1:27017/solrise` |
 | `OLLAMA_HOST` | Ollama server URL | `http://localhost:11434` |
 | `OLLAMA_MODEL` | LLM model name | `llama3.2` |
-| `HF_TOKEN` | Hugging Face token (optional) | |
